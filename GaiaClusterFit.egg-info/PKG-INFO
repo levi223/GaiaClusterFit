@@ -1,11 +1,10 @@
 Metadata-Version: 2.1
 Name: GaiaClusterFit
-Version: 0.0.1
+Version: 0.0.3
 Summary: Matching gaia clustered stars to known clusters
 Author: Levi van Es
 Author-email: <levi2234@hotmail.com>
 Description-Content-Type: text/markdown
-License-File: LICENCE.txt
 
 
 # Gaia-Cluster-Fit

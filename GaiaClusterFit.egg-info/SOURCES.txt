@@ -1,6 +1,10 @@
 LICENCE.txt
 README.md
+pyproject.toml
+setup.cfg
 setup.py
+GCA/GCA.py
+GCA/__init__.py
 GaiaClusterFit.egg-info/PKG-INFO
 GaiaClusterFit.egg-info/SOURCES.txt
 GaiaClusterFit.egg-info/dependency_links.txt
