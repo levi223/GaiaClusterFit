@@ -29,7 +29,8 @@ from sklearn import metrics
 import itertools
 
 
-
+def test():
+  print("test")
 #gaia cluster analysis
 def scoringfunction(dataselection, regiondata):
     """Cross-match-scores 2 sets of clustered data on a homogeneity score
@@ -50,7 +51,7 @@ def scoringfunction(dataselection, regiondata):
     return score
 
 
-class GCA():
+class GCAinstance():
   """Main instance used for cluster fitting and clusterer fitting.
 
 
