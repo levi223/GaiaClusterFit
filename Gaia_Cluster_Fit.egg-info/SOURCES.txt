@@ -1,8 +1,0 @@
-LICENCE.txt
-README.md
-setup.py
-Gaia_Cluster_Fit.egg-info/PKG-INFO
-Gaia_Cluster_Fit.egg-info/SOURCES.txt
-Gaia_Cluster_Fit.egg-info/dependency_links.txt
-Gaia_Cluster_Fit.egg-info/requires.txt
-Gaia_Cluster_Fit.egg-info/top_level.txt

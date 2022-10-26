@@ -1,8 +1,0 @@
-LICENCE.txt
-README.md
-setup.py
-GaiaClusterTool.egg-info/PKG-INFO
-GaiaClusterTool.egg-info/SOURCES.txt
-GaiaClusterTool.egg-info/dependency_links.txt
-GaiaClusterTool.egg-info/requires.txt
-GaiaClusterTool.egg-info/top_level.txt
