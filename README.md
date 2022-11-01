@@ -1,6 +1,6 @@
 # GaiaClusterFit
 
-GaiaClusterFit is a Python library for dealing cluster
+GaiaClusterFit is a Python library for optuimizing GAIA clustering
 
 ## Installation
 
