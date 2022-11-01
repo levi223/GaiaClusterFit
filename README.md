@@ -71,7 +71,10 @@ GCAinstance(data =None, regiondata =None, RegionName = "No region Name")
 ```
 Creates an instance object class used for clusteringa and cluster match scoreing later on.
 `(data =None, regiondata =None, RegionName = "No region Name")`  are optional. 
-Later `instance.Datatable` and `instance.Regiondata` can be populated by querying the GAIA database (`GCAinstance.GaiaLogin`  and `GCAinstance.FetchQueryAsync`) or by uploading a Gaia FITs table through `instance.ImportDataTable` and `instance.ImportRegion`   
+Later `instance.Datatable` and `instance.Regiondata` can be populated by querying the GAIA database (`GCAinstance.GaiaLogin`  and `GCAinstance.FetchQueryAsync`) or by uploading a Gaia FITs table through `instance.ImportDataTable` and `instance.ImportRegion` 
+
+* `data` : an astropy.table table containing star data 
+* `regiondata`: an astropy.table table containing known cluster data
 
 ### GCAinstance.ImportDataTable()
 ```python
@@ -80,12 +83,15 @@ def ImportDataTable(self,path): #import a fits datatable comming from Gaia or wh
 ``` 
 Imports a GAIA table from the .fits format and stores it to self.datatable
 
+* `path`: a string specifying the path to the .fits table file containing star data 
+
 ### GCAinstance.ExportDataTable()
 ```python
 def ExportDataTable(self, path, **kwargs): #export the self.datatable to any format(for importing measures i would recommend .fits)
      self.datatable.write(f'{path}',**kwargs)ta)
 ``` 
 Exports self.datatable to a .fits file at a specified path. Kwargs translate over from `astropy.io.ascii.write(**kwargs)` function 
+* `path`: a string specifying the path where the .fits table file containing star data will be stored
 
 
 ### GCAinstance.ImportRegion()
@@ -95,12 +101,15 @@ def ImportDataTable(self,path): #import a fits datatable comming from Gaia or wh
 ``` 
 Imports a GAIA table from the .fits format and stores it to self.regiondata
 
+* `path`: a string specifying the path to the .fits table file containing cluster region data 
+
 ### GCAinstance.ExportRegion()
 ```python
 def ExportDataTable(self, path, **kwargs): #export the self.datatable to any format(for importing measures i would recommend .fits)
      self.regiondata.write(f'{path}',**kwargs)
 ``` 
 Exports self.regiondata to a .fits file at a specified path. Kwargs translate over from `astropy.io.ascii.write(**kwargs)` function 
+* `path`: a string specifying the path where the .fits table file containing cluster region data will be stored
 
 ### GCAinstance.GaiaLogin()
 
@@ -110,6 +119,8 @@ def GaiaLogin(self, username, password):
 ```
 The `GCAinstance.GaiaLogin()` initiates a GAIA database session based on personal credentials (`username="username", password="password"`). This allows for asynchronous data queries (`GCAinstance.FetchQueryAsync()`) from the GAIA database. This session is constrained within the instance allowing multiple instances to initiate different sessions.
 
+* `username`: a string specifying your GAIA username credential
+* `password`: a string specifying your GAIA password credential
 ### GCAinstance.FetchQueryAsync()
 
 ```python
@@ -119,7 +130,8 @@ def FetchQueryAsync(self, query, **kwargs):
 ```
 
 The `CAinstance.FetchQueryAsync(query, **kwargs)` function accepts a ADQL formatted query to fetch GAIA data. It writes this data to `GCAinstance.datatable` .
-
+* `query`: a string containing the to be queried ADQL query
+* `kwargs`: all keword arguments that the `Astroquery.Gaia.launch_job_async also accepts`
 
 ### GCAinstance.Renamecol()
 
@@ -129,6 +141,9 @@ def RenameCol(self, table, newnames):
       table.rename_column(i[0],i[1])
 ``` 
 The Renamecol function converts the columnnames of an `astropy.table` object to a set of new names. Within GaiaClusterFit we require that the columns of the regions and GAIA data match column names. Therefore it is standard practice to convert the GCAinstance.regiondata columns to match that of the GAIA columns. I.E `GCAinstance.RenameCol(GCAinstance.regiondata, [["Source","Source_id"],["Pop",population]])`. The default columnname for labeled clusterdata in GCAinstance.datatable is `"population"` 
+
+* `table`: astropy.table table object 
+* `newnames`: 2D python list as such [["old column name 1","new column name 1"],["old column name 2","new column name 2"]]
 
 ### GCAinstance.Plot()
 
@@ -142,6 +157,11 @@ def Plot(self, xaxis = "b", yaxis = "l", **kwargs):
     plt.show()
 ``` 
 `GCAinstance.Plot()` plots GCAinstance.datatable using matplotlib.pyplot. `x` and `y` dimensions of the plot can be controlled using `xaxis = "GAIA parameter" , yaxis = "GAIA parameter"'` where the GAIA parameter can be the string name of any column in GCAinstance.datatable. `**kwargs` takes any keywordargument `matplotlib.pyplot` accepts.
+
+* `xaxis`: column name of column in `GCAinstance.datatable` to display on the x-axis
+* `yaxis`: column name of column in `GCAinstance.datatable` to display on the y-axis
+* `kwargs`: general keyword arguments accepted by matplotlib.pyplot.plot()
+
 
 ### GCAinstance.PlotCluster()
 ```python
@@ -168,9 +188,9 @@ def Plot(self, xaxis = "b", yaxis = "l", **kwargs):
 ```
 The `GCAinstance.PlotCluster()`function plots the clusterdata alongside the `GCAinstance.datatable`  data. This requires GCAinstance.datatable` to be clustered before by GCAinstance.cluster()` function. The `GCAinstance.Plotcluster()` plots clusterlabels alongside GCAinstance.datatable using matplotlib.pyplot. `x` and `y` dimensions of the plot can be controlled using `xaxis = "GAIA parameter" , yaxis = "GAIA parameter"` where the GAIA parameter can be the string name of any column in GCAinstance.datatable. `**kwargs` takes any keywordargument `matplotlib.pyplot` accepts. 
 
-The function accepts a `clusterer="HDBSCAN" ` argument where accepted values are the names of any algorithm that has previously been used to cluster the data. 
-
-The function is set up to accept a `remove_outliers=True` parameter where a quantile of the clustered data can be selected ("Not yet implemented") 
+* `xaxis`: column name of column in `GCAinstance.datatable` to display on the x-axis
+* `yaxis`: column name of column in `GCAinstance.datatable` to display on the y-axis
+* `clusterer`: cluster function name of which to display latest formed clusters
 
 ### GCAinstance.cluster()
 ```python
