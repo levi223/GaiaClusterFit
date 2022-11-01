@@ -5,6 +5,7 @@ setup.cfg
 setup.py
 GaiaClusterFit/GCA.py
 GaiaClusterFit/__init__.py
+GaiaClusterFit/evalmetric.py
 GaiaClusterFit.egg-info/PKG-INFO
 GaiaClusterFit.egg-info/SOURCES.txt
 GaiaClusterFit.egg-info/dependency_links.txt
