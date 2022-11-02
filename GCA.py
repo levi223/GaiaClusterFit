@@ -141,6 +141,7 @@ class GCAinstance():
       ax.set_ylabel(yaxis)
       ax.set_xlabel(xaxis)
       plt.show()
+      return fig,ax
     except:
       if clusterer not in self.datatable.columns:
         print(f"Error: You did not perform the{clusterer} clustering yet. No {clusterer} column found in self.Datatable")
@@ -159,7 +160,7 @@ class GCAinstance():
         return clusterer 
 
 
-  def optimize_grid(self, dimensions= ["b","l","parallax","pmdec","pmra"], clusterer=HDBSCAN, fit_params=None, scoring_function=scoringfunction, **kwargs):     
+  def optimize_grid(self, dimensions= ["b","l","parallax","pmdec","pmra"], clusterer=HDBSCAN, fit_params=None, scoring_function=scoringfunction, write_results=False, **kwargs):     
         dataselection = [self.datatable[param] for param in dimensions] #N dimensional HDBscan
         
         data = StandardScaler().fit_transform(np.array(dataselection).T)
@@ -175,7 +176,13 @@ class GCAinstance():
           cluster.fit_predict(data) #in case of artificial of unknown stars we can use fit_predict to predict the cluster they would belong to
           labels = cluster.labels_
           self.datatable["population"] = labels
-          scores.append(scoring_function(self.datatable, self.regiondata))
+          scores.append(scoring_function(self.datatable, self.regiondata, dataselection))
           param_values.append(i)
         max_score_index, max_score = np.argmax(scores) , np.max(scores)
+        
+        if write_results:
+          with open(f"{clusterer.__class__.__name__}optimized results.txt","w") as f:
+            combinated= [param_values,scores]
+            for row in zip(*combinated):
+              f.write((str(row))+'\n')
         return param_values[max_score_index]
