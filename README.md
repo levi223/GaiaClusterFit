@@ -88,7 +88,7 @@ Imports a GAIA table from the .fits format and stores it to self.datatable
 ### GCAinstance.ExportDataTable()
 ```python
 def ExportDataTable(self, path, **kwargs): #export the self.datatable to any format(for importing measures i would recommend .fits)
-     self.datatable.write(f'{path}',**kwargs)ta)
+     self.datatable.write(f'{path}',**kwargs)
 ``` 
 Exports self.datatable to a .fits file at a specified path. Kwargs translate over from `astropy.io.ascii.write(**kwargs)` function 
 * `path`: a string specifying the path where the .fits table file containing star data will be stored
