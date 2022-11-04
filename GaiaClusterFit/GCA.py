@@ -155,7 +155,8 @@ class GCAinstance():
         clusterer.fit(data)
         clusterer.fit_predict(data) #in case of artificial of unknown stars we can use fit_predict to predict the cluster they would belong to
         labels = clusterer.labels_ #list of all stars in which a number encodes to what cluster it is assigned
-        self.datatable[f"{clusterer.__class__.__name__}"] = labels #append all labels to the designated "clustername "self.datatable table
+        self.datatable[f"{clusterer.__class__.__name__}"] = labels
+        self.datatable["population"] = labels #append all labels to the designated "clustername "self.datatable table
         self.clusterer = clusterer  
         return clusterer 
 
@@ -185,4 +186,4 @@ class GCAinstance():
             combinated= [param_values,scores]
             for row in zip(*combinated):
               f.write((str(row))+'\n')
-        return param_values[max_score_index]
+        return param_values[max_score_index], np.max(scores)
