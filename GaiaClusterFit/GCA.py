@@ -121,27 +121,31 @@ class GCAinstance():
 
   #plotting functions
   def PlotGAIA(self, xaxis = "b", yaxis = "l",plotclose=True, **kwargs):
-    plt.title(f"{self.regionname}")
+    
     plt.scatter(self.datatable[xaxis],self.datatable[yaxis], **kwargs)
-    plt.ylabel(yaxis)
-    plt.xlabel(xaxis)
-    plt.xlim(max(self.datatable[xaxis]),min(self.datatable[xaxis]))
+
     if plotclose:
+      plt.title(f"{self.regionname}")
+      plt.ylabel(yaxis)
+      plt.xlabel(xaxis)
+      plt.xlim(max(self.datatable[xaxis]),min(self.datatable[xaxis]))
       plt.show()
 
   def PlotRegion(self, xaxis = "b", yaxis = "l",plotclose=True, **kwargs):
-    plt.title(f"{self.regionname}")
-    plt.scatter(self.regiondata[xaxis],self.regiondata[yaxis], **kwargs)
-    plt.ylabel(yaxis)
-    plt.xlabel(xaxis)
-    plt.xlim(max(self.datatable[xaxis]),min(self.datatable[xaxis]))
+    
+    plt.scatter(self.regiondata[xaxis],self.regiondata[yaxis], c =self.regiondata["population"],**kwargs)
+
     if plotclose:
+      plt.title(f"{self.regionname} known region")
+      plt.ylabel(yaxis)
+      plt.xlabel(xaxis)
+      plt.xlim(max(self.regiondata[xaxis]),min(self.regiondata[xaxis]))
       plt.show()
 
   
-  def PlotCluster(self, xaxis="b", yaxis ="l", clusterer="HDBSCAN", remove_outliers =False , closeplot=True,**kwargs): #modified plot function with outlier filtration and Cluster selection
+  def PlotCluster(self, xaxis="b", yaxis ="l", clusterer="HDBSCAN", remove_outliers =False , plotclose=True ,**kwargs): #modified plot function with outlier filtration and Cluster selection
     try:
-      fig, ax = plt.subplots(figsize=(10,10))
+      
 
       plotdata = [self.datatable[xaxis], self.datatable[yaxis]]
       labels = self.datatable[clusterer]
@@ -150,20 +154,23 @@ class GCAinstance():
       if remove_outliers: 
         threshold = pd.Series(self.clusterer.outlier_scores_).quantile(remove_outliers)
         out = np.where(self.clusterer.outlier_scores_ > threshold)[0]
-        print(plotdata[0][4])
-        ax.scatter(np.take(plotdata[0],out),np.take(plotdata[1],out), c=np.take(labels,out), **kwargs)
-      ax.set_title(f"{clusterer} clusters in \n {self.regionname} \n Outliers removed = {remove_outliers} quantile ")
+        
+        plt.scatter(np.take(plotdata[0],out),np.take(plotdata[1],out), c=np.take(labels,out), **kwargs)
+      
       if remove_outliers ==False:
-        ax.scatter(*plotdata, c=labels, **kwargs)
-      ax.set_ylabel(yaxis)
-      ax.set_xlabel(xaxis)
-      if closeplot:
+        plt.scatter(*plotdata, c=labels, **kwargs)
+      
+      if plotclose:
+        plt.ylabel(yaxis)
+        plt.xlabel(xaxis)
+        plt.title(f"{clusterer} clusters in \n {self.regionname} \n Outliers removed = {remove_outliers} quantile ")
         plt.show()
-      return fig,ax
+        
+      
     except:
       if clusterer not in self.datatable.columns:
         print(f"Error: You did not perform the{clusterer} clustering yet. No {clusterer} column found in self.Datatable")
-      return fig,ax
+      
 
   def cluster(self, clusterer = HDBSCAN, dimensions = ["b","l","parallax","pmdec","pmra"],**kwargs):
         print(f"Running {clusterer.__class__.__name__} on {self.regionname} over {dimensions}\n")
