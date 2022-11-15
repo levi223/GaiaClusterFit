@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.optimize as sciopt
+import pandas as pd
 from mpl_toolkits import mplot3d
 
 #makeup
@@ -69,6 +70,7 @@ class GCAinstance():
     self.regionname = RegionName  #Region name
     self.datatable = data #complete table containing all data
     self.regiondata =regiondata
+    
 
   #data functions
   def GaiaLogin(self, username, password):
@@ -130,14 +132,18 @@ class GCAinstance():
     try:
       fig, ax = plt.subplots(figsize=(10,10))
 
-      plotdata = (self.datatable[xaxis], self.datatable[yaxis])
+      plotdata = [self.datatable[xaxis], self.datatable[yaxis]]
       labels = self.datatable[clusterer]
-
-      if remove_outliers == True : 
-        plotdata = self.datatable[xaxis][self.datatable[f"{remove_outliers}_outlier"]],self.datatable[yaxis][self.datatable[f"{remove_outliers}_outlier"]]
-        labels = self.datatable[clusterer][self.datatable[f"{remove_outliers}_outlier"]]
-      ax.set_title(f"{clusterer} clusters in \n {self.regionname} \n Outliers removed = {remove_outliers} ")
-      ax.scatter(*plotdata, c=labels, **kwargs)
+      
+      
+      if remove_outliers: 
+        threshold = pd.Series(self.clusterer.outlier_scores_).quantile(remove_outliers)
+        out = np.where(self.clusterer.outlier_scores_ > threshold)[0]
+        print(plotdata[0][4])
+        ax.scatter(np.take(plotdata[0],out),np.take(plotdata[1],out), c=np.take(labels,out), **kwargs)
+      ax.set_title(f"{clusterer} clusters in \n {self.regionname} \n Outliers removed = {remove_outliers} quantile ")
+      if remove_outliers ==False:
+        ax.scatter(*plotdata, c=labels, **kwargs)
       ax.set_ylabel(yaxis)
       ax.set_xlabel(xaxis)
       plt.show()
