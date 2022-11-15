@@ -120,15 +120,26 @@ class GCAinstance():
       table.rename_column(i[0],i[1])
 
   #plotting functions
-  def Plot(self, xaxis = "b", yaxis = "l", **kwargs):
+  def PlotGAIA(self, xaxis = "b", yaxis = "l",plotclose=True, **kwargs):
     plt.title(f"{self.regionname}")
     plt.scatter(self.datatable[xaxis],self.datatable[yaxis], **kwargs)
     plt.ylabel(yaxis)
     plt.xlabel(xaxis)
-    plt.xlim(max(self.datatable[xaxis]),min(self.datatable[yaxis]))
-    plt.show()
+    plt.xlim(max(self.datatable[xaxis]),min(self.datatable[xaxis]))
+    if plotclose:
+      plt.show()
+
+  def PlotRegion(self, xaxis = "b", yaxis = "l",plotclose=True, **kwargs):
+    plt.title(f"{self.regionname}")
+    plt.scatter(self.regiondata[xaxis],self.regiondata[yaxis], **kwargs)
+    plt.ylabel(yaxis)
+    plt.xlabel(xaxis)
+    plt.xlim(max(self.datatable[xaxis]),min(self.datatable[xaxis]))
+    if plotclose:
+      plt.show()
+
   
-  def PlotCluster(self, xaxis="b", yaxis ="l", clusterer="HDBSCAN", remove_outliers =False , **kwargs): #modified plot function with outlier filtration and Cluster selection
+  def PlotCluster(self, xaxis="b", yaxis ="l", clusterer="HDBSCAN", remove_outliers =False , closeplot=True,**kwargs): #modified plot function with outlier filtration and Cluster selection
     try:
       fig, ax = plt.subplots(figsize=(10,10))
 
@@ -146,7 +157,8 @@ class GCAinstance():
         ax.scatter(*plotdata, c=labels, **kwargs)
       ax.set_ylabel(yaxis)
       ax.set_xlabel(xaxis)
-      plt.show()
+      if closeplot:
+        plt.show()
       return fig,ax
     except:
       if clusterer not in self.datatable.columns:
