@@ -132,8 +132,11 @@ class GCAinstance():
       plt.show()
 
   def PlotRegion(self, xaxis = "b", yaxis = "l",plotclose=True, **kwargs):
+    regionnames = np.unique(self.regiondata["population"])
     
-    plt.scatter(self.regiondata[xaxis],self.regiondata[yaxis], c =self.regiondata["population"],**kwargs)
+    colors = [np.where(regionnames == i) for i in self.regiondata["population"]]
+    print()
+    plt.scatter(self.regiondata[xaxis],self.regiondata[yaxis],c=colors, **kwargs)
 
     if plotclose:
       plt.title(f"{self.regionname} known region")

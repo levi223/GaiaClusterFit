@@ -10,13 +10,11 @@ def homogeneityscore(dataselection, regiondata,data=None):
     Returns:
         Float: The return value. True for success, False otherwise.
     """
-
-    common_elements_data = np.isin(dataselection["source_id"],regiondata["source_id"])
-    common_elements_region = np.isin(regiondata["source_id"],dataselection["source_id"])
-    predicted_common_elements = dataselection[common_elements_data].group_by("source_id")
-    true_common_elements = regiondata[common_elements_region].group_by("source_id")
-        
-    score = sk.metrics.homogeneity_score(true_common_elements["population"], predicted_common_elements["population"])
+    redundant,spots1, spots2 = np.intersect1d(dataselection["source_id"],regiondata["source_id"],return_indices=True)
+    predicted_common_elements = dataselection[spots1].group_by("source_id")
+    true_common_elements = regiondata[spots2].group_by("source_id")
+    placeholder = np.array([np.where(np.unique(predicted_common_elements["population"]) == i)[0][0] for i in predicted_common_elements["population"]])
+    score = sk.metrics.homogeneity_score(true_common_elements["population"],placeholder)
     return score
 
 def completenessscore(dataselection, regiondata,data=None):
@@ -29,12 +27,12 @@ def completenessscore(dataselection, regiondata,data=None):
         Float: The return value. True for success, False otherwise.
     """
 
-    common_elements_data = np.isin(dataselection["source_id"],regiondata["source_id"])
-    common_elements_region = np.isin(regiondata["source_id"],dataselection["source_id"])
-    predicted_common_elements = dataselection[common_elements_data].group_by("source_id")
-    true_common_elements = regiondata[common_elements_region].group_by("source_id")
-        
-    score = sk.metrics.completeness_score(true_common_elements["population"], predicted_common_elements["population"])
+    redundant,spots1, spots2 = np.intersect1d(dataselection["source_id"],regiondata["source_id"],return_indices=True)
+    predicted_common_elements = dataselection[spots1].group_by("source_id")
+    true_common_elements = regiondata[spots2].group_by("source_id")
+    placeholder = np.array([np.where(np.unique(predicted_common_elements["population"]) == i)[0][0] for i in predicted_common_elements["population"]])
+       
+    score = sk.metrics.completeness_score(true_common_elements["population"], placeholder)
     return score
 
 
@@ -48,12 +46,12 @@ def randscore(dataselection, regiondata,data=None):
         Float: The return value. True for success, False otherwise.
     """
 
-    common_elements_data = np.isin(dataselection["source_id"],regiondata["source_id"])
-    common_elements_region = np.isin(regiondata["source_id"],dataselection["source_id"])
-    predicted_common_elements = dataselection[common_elements_data].group_by("source_id")
-    true_common_elements = regiondata[common_elements_region].group_by("source_id")
-        
-    score = sk.metrics.rand_score(true_common_elements["population"], predicted_common_elements["population"])
+    redundant,spots1, spots2 = np.intersect1d(dataselection["source_id"],regiondata["source_id"],return_indices=True)
+    predicted_common_elements = dataselection[spots1].group_by("source_id")
+    true_common_elements = regiondata[spots2].group_by("source_id")
+    placeholder = np.array([np.where(np.unique(predicted_common_elements["population"]) == i)[0][0] for i in predicted_common_elements["population"]])
+         
+    score = sk.metrics.rand_score(true_common_elements["population"], placeholder)
     return score
 
 def calinskiharabaszscore(dataselection, regiondata,data=None):
@@ -66,12 +64,12 @@ def calinskiharabaszscore(dataselection, regiondata,data=None):
         Float: The return value. True for success, False otherwise.
     """
 
-    common_elements_data = np.isin(dataselection["source_id"],regiondata["source_id"])
-    common_elements_region = np.isin(regiondata["source_id"],dataselection["source_id"])
-    predicted_common_elements = dataselection[common_elements_data].group_by("source_id")
-    true_common_elements = regiondata[common_elements_region].group_by("source_id")
-        
-    score = sk.metrics.calinski_harabasz_score(true_common_elements["population"], predicted_common_elements["population"])
+    redundant,spots1, spots2 = np.intersect1d(dataselection["source_id"],regiondata["source_id"],return_indices=True)
+    predicted_common_elements = dataselection[spots1].group_by("source_id")
+    true_common_elements = regiondata[spots2].group_by("source_id")
+    placeholder = np.array([np.where(np.unique(predicted_common_elements["population"]) == i)[0][0] for i in predicted_common_elements["population"]])
+    
+    score = sk.metrics.calinski_harabasz_score(true_common_elements["population"], placeholder)
     return score
 
 def mutualinfoscore(dataselection, regiondata,data=None):
@@ -84,12 +82,12 @@ def mutualinfoscore(dataselection, regiondata,data=None):
         Float: The return value. True for success, False otherwise.
     """
 
-    common_elements_data = np.isin(dataselection["source_id"],regiondata["source_id"])
-    common_elements_region = np.isin(regiondata["source_id"],dataselection["source_id"])
-    predicted_common_elements = dataselection[common_elements_data].group_by("source_id")
-    true_common_elements = regiondata[common_elements_region].group_by("source_id")
-        
-    score = sk.metrics.mutual_info(true_common_elements["population"], predicted_common_elements["population"])
+    redundant,spots1, spots2 = np.intersect1d(dataselection["source_id"],regiondata["source_id"],return_indices=True)
+    predicted_common_elements = dataselection[spots1].group_by("source_id") #put elements in the same order
+    true_common_elements = regiondata[spots2].group_by("source_id") #put elements in the same order
+    placeholder = np.array([np.where(np.unique(predicted_common_elements["population"]) == i)[0][0] for i in predicted_common_elements["population"]])#convert any cluster naming scheme to a population number
+    
+    score = sk.metrics.mutual_info(true_common_elements["population"], placeholder)
     return score
 
 def daviesbouldinscore(dataselection, regiondata,data=None):
@@ -102,12 +100,12 @@ def daviesbouldinscore(dataselection, regiondata,data=None):
         Float: The return value. True for success, False otherwise.
     """
 
-    common_elements_data = np.isin(dataselection["source_id"],regiondata["source_id"])
-    common_elements_region = np.isin(regiondata["source_id"],dataselection["source_id"])
-    predicted_common_elements = dataselection[common_elements_data].group_by("source_id")
-    true_common_elements = regiondata[common_elements_region].group_by("source_id")
-        
-    score = sk.metrics.davies_bouldin_score(true_common_elements["population"], predicted_common_elements["population"])
+    redundant,spots1, spots2 = np.intersect1d(dataselection["source_id"],regiondata["source_id"],return_indices=True)
+    predicted_common_elements = dataselection[spots1].group_by("source_id") #put elements in the same order
+    true_common_elements = regiondata[spots2].group_by("source_id") #put elements in the same order
+    placeholder = np.array([np.where(np.unique(predicted_common_elements["population"]) == i)[0][0] for i in predicted_common_elements["population"]])#convert any cluster naming scheme to a population number
+    
+    score = sk.metrics.davies_bouldin_score(true_common_elements["population"],placeholder)
     return score
 
 def vmeasurescore(dataselection, regiondata,data=None):
@@ -120,12 +118,12 @@ def vmeasurescore(dataselection, regiondata,data=None):
         Float: Score between 0 and 1
     """
 
-    common_elements_data = np.isin(dataselection["source_id"],regiondata["source_id"])
-    common_elements_region = np.isin(regiondata["source_id"],dataselection["source_id"])
-    predicted_common_elements = dataselection[common_elements_data].group_by("source_id")
-    true_common_elements = regiondata[common_elements_region].group_by("source_id")
-        
-    score = sk.metrics.v_measure_score(true_common_elements["population"], predicted_common_elements["population"])
+    redundant,spots1, spots2 = np.intersect1d(dataselection["source_id"],regiondata["source_id"],return_indices=True)
+    predicted_common_elements = dataselection[spots1].group_by("source_id") #put elements in the same order
+    true_common_elements = regiondata[spots2].group_by("source_id") #put elements in the same order
+    placeholder = np.array([np.where(np.unique(predicted_common_elements["population"]) == i)[0][0] for i in predicted_common_elements["population"]])#convert any cluster naming scheme to a population number
+      
+    score = sk.metrics.v_measure_score(true_common_elements["population"],placeholder)
     return score
 
 
