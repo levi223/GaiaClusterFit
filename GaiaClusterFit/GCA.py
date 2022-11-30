@@ -179,6 +179,8 @@ class GCAinstance():
   def optimize_grid(self, dimensions= ["b","l","parallax","pmdec","pmra"], clusterer=HDBSCAN, fit_params=None, scoring_function=scoringfunction, write_results=False, **kwargs):     
         dataselection = [self.datatable[param] for param in dimensions] #N dimensional HDBscan
         data = StandardScaler().fit_transform(np.array(dataselection).T)
+
+        #logs
         scores= []
         param_values = []
         point_variable_names = [i["variable"]for i in fit_params]
@@ -186,13 +188,36 @@ class GCAinstance():
         combination = [p for p in itertools.product(*point_variable_list)]
         combination = [dict(zip(point_variable_names, i)) for i in combination]
         for i in tqdm(combination):
+          print("Parameters :"i)
           cluster = clusterer(**i, **kwargs)
           cluster.fit(data)
           cluster.fit_predict(data) #in case of artificial of unknown stars we can use fit_predict to predict the cluster they would belong to
           labels = cluster.labels_
           self.datatable["population"] = labels
-          scores.append(scoring_function(self.datatable, self.regiondata, dataselection))
+
+          #make selection of populations in both self.regiondata and self.dataselection. Only stars present in both tables are taken into account
+
+          #index selection of common stars by source id
+          redundant,spots1, spots2 = np.intersect1d(self.datatable["source_id"],self.regiondata["source_id"],return_indices=True)
+          #select common stars in both data and region tables and sort
+          common_elements_datatable = self.datatable[spots1].group_by("source_id")
+          common_elements_regiondata = self.regiondata[spots2].group_by("source_id")
+
+          #rename named regions to numbers for easier comparison
+          common_elements_regiondata_numbered = np.array([np.where(np.unique(common_elements_regiondata["population"]) == i)[0][0] for i in common_elements_regiondata["population"]]) #convert named clusters to numbers
+          
+          #seperate out the noise regions (-1 region in HDBSCAN)
+          #final_datatable_selection = common_elements_datatable[np.where(common_elements_datatable != -1)]
+          final_datatable_selection = common_elements_datatable[common_elements_datatable["population"] != -1]["population"] #df format
+          final_regiondata_selection = common_elements_regiondata_numbered[common_elements_datatable["population"] != -1] #np.array format
+
+          final_dataselection_selection = data[spots1][common_elements_datatable["population"] != -1]# dataselection[common_elements_datatable["population"] != -1] #np.array format
+          #print(len(final_datatable_selection), len(final_regiondata_selection),len(final_dataselection_selection))
+
+          #scoring and adding to log
+          scores.append(scoring_function(final_regiondata_selection, final_datatable_selection, final_dataselection_selection)) # score the regions
           param_values.append(i)
+
         max_score_index, max_score = np.argmax(scores) , np.max(scores)
         
         if write_results:
