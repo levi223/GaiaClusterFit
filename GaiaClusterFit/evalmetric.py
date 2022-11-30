@@ -31,7 +31,7 @@ def completenessscore(dataselection, regiondata,data=None):
     predicted_common_elements = dataselection[spots1].group_by("source_id")
     true_common_elements = regiondata[spots2].group_by("source_id")
     placeholder = np.array([np.where(np.unique(predicted_common_elements["population"]) == i)[0][0] for i in predicted_common_elements["population"]])
-       
+    
     score = sk.metrics.completeness_score(true_common_elements["population"], placeholder)
     return score
 
@@ -87,7 +87,7 @@ def mutualinfoscore(dataselection, regiondata,data=None):
     true_common_elements = regiondata[spots2].group_by("source_id") #put elements in the same order
     placeholder = np.array([np.where(np.unique(predicted_common_elements["population"]) == i)[0][0] for i in predicted_common_elements["population"]])#convert any cluster naming scheme to a population number
     
-    score = sk.metrics.mutual_info(true_common_elements["population"], placeholder)
+    score = sk.metrics.mutual_info_score(true_common_elements["population"], placeholder)
     return score
 
 def daviesbouldinscore(dataselection, regiondata,data=None):

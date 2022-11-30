@@ -88,17 +88,6 @@ class GCAinstance():
     Gaia.login(user=str(username), password=str(password))
 
   def FetchQueryAsync(self, query, **kwargs):
-    """Fetches Gaia database data based on Query. Returned data is saved in self.datatable
-
-    Args:
-        query (str): example - SELECT TOP 1000  source_id, b, l, parallax,phot_g_mean_mag,pmra,pmdec, RUWE, bp_rp,phot_g_mean_mag+5*log10(parallax)-10 as mg 
-        FROM gaiadr3.gaia_source
-        WHERE l < 275 AND l > 240
-        
-
-    Returns:
-        Nothing
-    """
 
     job = Gaia.launch_job_async(query, **kwargs)
     self.datatable = job.get_results()
@@ -148,17 +137,15 @@ class GCAinstance():
   
   def PlotCluster(self, xaxis="b", yaxis ="l", clusterer="HDBSCAN", remove_outliers =False , plotclose=True ,**kwargs): #modified plot function with outlier filtration and Cluster selection
     try:
-      
-
+    
       plotdata = [self.datatable[xaxis], self.datatable[yaxis]]
-      labels = self.datatable[clusterer]
-      
+      labels = self.datatable["population"]
       
       if remove_outliers: 
         threshold = pd.Series(self.clusterer.outlier_scores_).quantile(remove_outliers)
-        out = np.where(self.clusterer.outlier_scores_ > threshold)[0]
-        
-        plt.scatter(np.take(plotdata[0],out),np.take(plotdata[1],out), c=np.take(labels,out), **kwargs)
+        out1 = np.where((self.clusterer.outlier_scores_ > threshold) & (self.datatable["population"] != -1))[0]
+        print(len(out1))
+        plt.scatter(np.take(plotdata[0],out1),np.take(plotdata[1],out1), c=np.take(labels,out1), **kwargs)
       
       if remove_outliers ==False:
         plt.scatter(*plotdata, c=labels, **kwargs)
@@ -181,7 +168,7 @@ class GCAinstance():
         data =StandardScaler().fit_transform(np.array(dataselection).T)
         clusterer = clusterer(**kwargs)
         clusterer.fit(data)
-        clusterer.fit_predict(data) #in case of artificial of unknown stars we can use fit_predict to predict the cluster they would belong to
+        #clusterer.fit_predict(data) #in case of artificial of unknown stars we can use fit_predict to predict the cluster they would belong to
         labels = clusterer.labels_ #list of all stars in which a number encodes to what cluster it is assigned
         self.datatable[f"{clusterer.__class__.__name__}"] = labels
         self.datatable["population"] = labels #append all labels to the designated "clustername "self.datatable table
@@ -191,7 +178,6 @@ class GCAinstance():
 
   def optimize_grid(self, dimensions= ["b","l","parallax","pmdec","pmra"], clusterer=HDBSCAN, fit_params=None, scoring_function=scoringfunction, write_results=False, **kwargs):     
         dataselection = [self.datatable[param] for param in dimensions] #N dimensional HDBscan
-        
         data = StandardScaler().fit_transform(np.array(dataselection).T)
         scores= []
         param_values = []
@@ -210,7 +196,7 @@ class GCAinstance():
         max_score_index, max_score = np.argmax(scores) , np.max(scores)
         
         if write_results:
-          with open(f"{clusterer.__class__.__name__}optimized results.txt","w") as f:
+          with open(f"optimized results.txt","w") as f:
             combinated= [param_values,scores]
             for row in zip(*combinated):
               f.write((str(row))+'\n')
