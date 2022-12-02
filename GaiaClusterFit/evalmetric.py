@@ -80,14 +80,24 @@ def vmeasurescore(knownregions, predictedregions,data=None):
     return score
 
 
-def silhouettescore(knownregions, predictedregions,data=None):
+def silhouettescore(knownregions, predictedregions,data=None, **kwargs):
 
     #print(np.unique(knownregions))
     #print(len(predictedregions), len(knownregions))
     try:
         
-        score = sk.metrics.silhouette_score(np.array(data),knownregions)
+        score = sk.metrics.silhouette_score(np.array(data),predictedregions)
         print("Shilhouette score :",score)
+        return score
+
+    except Exception as e:
+        print("Could not compute silhouette score")
+        print(f"Error message:{e}")
+        return float("nan")
+
+def silhouettesample(knownregions,predictedregions,data=None, **kwargs):
+    try: 
+        score = sk.metrics.silhouette_samples(np.array(data),predictedregions)
         return score
 
     except Exception as e:
