@@ -101,7 +101,7 @@ def silhouettesample(knownregions,predictedregions,data=None, **kwargs):
         return score
 
     except Exception as e:
-        print("Could not compute silhouette score")
+        print("Could not compute silhouette sample score")
         print(f"Error message:{e}")
         return float("nan")
 

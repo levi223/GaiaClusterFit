@@ -212,14 +212,12 @@ class GCAinstance():
     for i in np.unique(final_datatable_selection): # Here we make the colored shape for each cluster
         # Aggregate the silhouette scores for samples belonging to cluster i, and sort them
         ith_cluster_silhouette_values = sample_silhouette_values[final_datatable_selection == i]
-        print(len(ith_cluster_silhouette_values))
         ith_cluster_silhouette_values.sort()
 
         # Figure out how much room on the y-axis to reserve for this cluster
         size_cluster_i = ith_cluster_silhouette_values.shape[0]
         y_upper = y_lower + size_cluster_i
         y_range = np.arange(y_lower, y_upper)
-
         # Use matplotlib color maps to make each cluster a different color, based on the total number of clusters.
         # We use this to make sure the colors in the right plot will match those on the left.
         color = cm.nipy_spectral(float(i) / n_clusters)
@@ -259,6 +257,113 @@ class GCAinstance():
         ax2.scatter(c[0], c[1], marker='$%d$' % (i+min(np.unique(final_datatable_selection))), alpha=1, s=50, edgecolor='k')
     plt.show()
     return 
+
+  def silhouette_cluster_region(self, threshold=0,xaxis="l",yaxis="b", dimensions=["b","l","parallax","pmdec","pmra"], **kwargs):
+
+    dataselection = [self.datatable[param] for param in dimensions] #N dimensional HDBscan
+    data = StandardScaler().fit_transform(np.array(dataselection).T)
+    #calculating silhouette    
+    #index selection of common stars by source id
+
+
+     #seperate out the noise regions (-1 region in HDBSCAN)
+    #final_datatable_selection = common_elements_datatable[np.where(common_elements_datatable != -1)]
+    thold = pd.Series(self.datatable["probabilities"]).quantile(threshold)
+    mask = np.where((self.datatable["population"] != -1) & (self.datatable["probabilities"] > thold))
+
+    
+    datatable_selection = self.datatable[mask]["population"] #df format
+    final_regiondata_selection = self.regiondata["population"] #unneccesary
+    dataselection_selection = data[mask]# dataselection[common_elements_datatable["population"] != -1] #np.array format
+
+    #combine region and cluster data
+    available_region_numbers =np.arange(len(np.unique(self.regiondata["population"])), len(np.unique(self.regiondata["population"])) + len(np.unique(final_regiondata_selection)))
+    region_pop_converted_numbers = np.array([np.where(np.unique(self.regiondata["population"]) == i)[0][0] for i in self.regiondata["population"]]) #convert named clusters to numbers
+    renumbered_region_data = [available_region_numbers[v] for c,v in enumerate(region_pop_converted_numbers)] #renumber population names such that they do not coincide with cluster data
+    final_datatable_selection = np.concatenate((datatable_selection,renumbered_region_data),axis=0) #add region population labels to cluster labels
+
+    region_dataselection = [self.regiondata[param] for param in dimensions] #N dimensional HDBscan
+    data_region = StandardScaler().fit_transform(np.array(region_dataselection).T)
+    #print(type(data), np.shape(data))
+    #print(type(data_region), np.shape(data_region))
+    final_dataselection_selection = np.concatenate((data[mask],data_region), axis=0)
+    print(np.shape(final_dataselection_selection))
+    print(np.shape(final_datatable_selection))
+    
+    sample_silhouette_values = eval.silhouettesample(final_regiondata_selection, final_datatable_selection, final_dataselection_selection)
+    avg_silhouette_score = eval.silhouettescore(final_regiondata_selection, final_datatable_selection, final_dataselection_selection)
+    n_clusters = len(np.unique(final_datatable_selection))
+
+
+    #creating figure
+    fig, (ax1, ax2) = plt.subplots(1, 2)
+    fig.set_size_inches(18, 7)
+    # The 1st subplot is the silhouette plot
+    ax1.set_title("The silhouette plot for the various clusters.")
+    # The silhouette coefficient can range from -1, 1 but in this example all
+    # lie within [-0.1, 1]
+    ax1.set_xlabel("The silhouette coefficient values")
+    ax1.set_xlim([-0.1, 1])
+    ax1.set_xticks([-0.1, 0, 0.2, 0.4, 0.6, 0.8, 1])
+    # The (n_clusters+1)*10 is for inserting blank space between silhouette
+    # plots of individual clusters, to demarcate them clearly.
+    ax1.set_ylabel("Cluster label")
+    ax1.set_ylim([0, len(final_dataselection_selection) + (n_clusters + 1) * 10]) #change variables
+    ax1.set_yticks([])  # Clear the yaxis labels / ticks
+    #calculating individual silhouette scores
+    y_lower = 10  # starting position on the y-axis of the next cluster to be rendered
+
+
+    for i in np.unique(final_datatable_selection): # Here we make the colored shape for each cluster
+        # Aggregate the silhouette scores for samples belonging to cluster i, and sort them
+        ith_cluster_silhouette_values = sample_silhouette_values[final_datatable_selection == i]
+        ith_cluster_silhouette_values.sort()
+
+        # Figure out how much room on the y-axis to reserve for this cluster
+        size_cluster_i = ith_cluster_silhouette_values.shape[0]
+        y_upper = y_lower + size_cluster_i
+        y_range = np.arange(y_lower, y_upper)
+        # Use matplotlib color maps to make each cluster a different color, based on the total number of clusters.
+        # We use this to make sure the colors in the right plot will match those on the left.
+        color = cm.nipy_spectral(float(i) / n_clusters)
+
+        # Draw the cluster's overall silhouette by drawing one horizontal stripe for each datapoint in it
+        ax1.fill_betweenx(y=y_range,                            # y-coordinates of the stripes
+                          x1=0,                                 # all stripes start touching the y-axis
+                          x2=ith_cluster_silhouette_values,     # ... and they run as far as the silhouette values
+                          facecolor=color, edgecolor=color, alpha=0.7)
+
+        # Label the silhouette plots with their cluster numbers at the middle
+        ax1.text(-0.05, y_lower + 0.5 * size_cluster_i, str(i))
+
+        # Compute the new y_lower for next plot
+        y_lower = y_upper + 10  # 10 for the 0 samples  
+    ax1.axvline(x=avg_silhouette_score, color="red", linestyle="--")
+    
+
+    #PLOT RIGHT PLOT
+    #
+    ax2.set_title("The visualization of the clustered data.")
+    ax2.set_xlabel(xaxis)
+    ax2.set_ylabel(yaxis)
+
+    plt.suptitle(f"Silhouette clustering analysis clustering on sample data with n_clusters = {n_clusters}",
+                 fontsize=14, fontweight='bold')
+    colors = cm.nipy_spectral(self.datatable[mask]["population"].astype(float) / n_clusters)  # make the colors match with the other plot
+    ax2.scatter(self.datatable[mask][xaxis], self.datatable[mask][yaxis], marker='.', s=30, lw=0, alpha=0.7, c=colors, edgecolor='k')
+
+    # Labeling the clusters
+    centers = np.array([[np.average(self.datatable[self.datatable["population"] == i][xaxis]),np.average(self.datatable[self.datatable["population"] == i][yaxis])] for i in np.unique(final_datatable_selection)])
+   
+    # Draw white circles at cluster centers
+    ax2.scatter(centers[:, 0], centers[:, 1], marker='o', c="white", alpha=1, s=200, edgecolor='k')
+    # Put numbers in those circles
+    for i, c in enumerate(centers):
+        ax2.scatter(c[0], c[1], marker='$%d$' % (i+min(np.unique(final_datatable_selection))), alpha=1, s=50, edgecolor='k')
+    plt.show()
+    return 
+
+
 
   def optimize_grid(self, dimensions= ["b","l","parallax","pmdec","pmra"], clusterer=HDBSCAN, fit_params=None, scoring_function=scoringfunction, write_results=False, **kwargs):     
         dataselection = [self.datatable[param] for param in dimensions] #N dimensional HDBscan
