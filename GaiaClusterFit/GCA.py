@@ -9,7 +9,7 @@ import matplotlib.cm as cm
 from tqdm import tqdm
 
 #astropy packages
-import evalmetric as eval
+import evalmetric as eval #own functions
 import astropy.io 
 from astropy.io import fits
 import astropy.units as u
@@ -44,18 +44,6 @@ def scoringfunction(dataselection, regiondata):
 
 
 class GCAinstance():
-  """Main instance used for cluster fitting and clusterer fitting.
-
-
-    Args:
-        data (Astropy.Table): An astropy table containing all data for a selected set of stars
-        the ImportDataTable() function can also import gaia.fits tables to an Astropy.Table
-
-        regiondata (Astropy.Table): An astropy table containing all data for clusterdata
-        the ImportRegion() function can also import .fits tables to an Astropy.Table
-
-        Regionname (str): Internal region name (default = No Region Name)
-    """
 
   def __init__(self, data =None,regiondata =None, RegionName = "No region Name"):
     self.regionname = RegionName  #Region name
@@ -99,8 +87,9 @@ class GCAinstance():
     for i in newnames:
       table.rename_column(i[0],i[1])
 
+
   #plotting functions
-  def PlotGAIA(self, xaxis = "b", yaxis = "l",plotclose=True, **kwargs):
+  def PlotGAIA(self, xaxis = "b", yaxis = "l",plotclose=True,  **kwargs):
     
     plt.scatter(self.datatable[xaxis],self.datatable[yaxis], **kwargs)
 
@@ -111,10 +100,19 @@ class GCAinstance():
       plt.xlim(max(self.datatable[xaxis]),min(self.datatable[xaxis]))
       plt.show()
 
-  def PlotRegion(self, xaxis = "b", yaxis = "l",plotclose=True, **kwargs):
+  def PlotRegion(self, xaxis = "b", yaxis = "l",plotclose=True,plotnames = True, **kwargs):
     regionnames = np.unique(self.regiondata["population"])
     colors = [np.where(regionnames == i) for i in self.regiondata["population"]]
+   
     plt.scatter(self.regiondata[xaxis],self.regiondata[yaxis],c=colors, **kwargs)
+
+    if plotnames:
+      for i in np.unique(self.regiondata["population"]):
+        text_x = np.average(self.regiondata[self.regiondata["population"] == i][xaxis])
+        text_y = np.average(self.regiondata[self.regiondata["population"] == i][yaxis])
+        plt.text(text_x,text_y,i)
+
+
 
     if plotclose:
       plt.title(f"{self.regionname} known region")
@@ -123,37 +121,41 @@ class GCAinstance():
       plt.xlim(max(self.regiondata[xaxis]),min(self.regiondata[xaxis]))
       plt.show()
 
-  
-  def PlotCluster(self, xaxis="b", yaxis ="l", clusterer="HDBSCAN", remove_outliers =False , plotclose=True ,**kwargs): #modified plot function with outlier filtration and Cluster selection
+  def PlotCluster(self, xaxis="b", yaxis ="l",  remove_outliers =False , plotnames = True, plotclose=True ,**kwargs): #modified plot function with outlier filtration and Cluster selection
     try:
-    
-      plotdata = [self.datatable[xaxis], self.datatable[yaxis]]
-      labels = self.datatable["population"]
-      
-      if remove_outliers != False: 
+      if remove_outliers: 
         threshold = pd.Series(self.datatable["probabilities"]).quantile(remove_outliers)
         out1 = np.where((self.datatable["probabilities"] > threshold) & (self.datatable["population"] != -1))[0]
-        plt.scatter(np.take(plotdata[0],out1),np.take(plotdata[1],out1), c=np.take(labels,out1), **kwargs)
+        plt.scatter(np.take(self.datatable[xaxis],out1),np.take(self.datatable[yaxis],out1), c=np.take(self.datatable["population"],out1), **kwargs)
       
-      if remove_outliers ==False:
-        plt.scatter(*plotdata, c=labels, **kwargs)
+      if remove_outliers == False:
+        plt.scatter(self.datatable[xaxis], self.datatable[yaxis] , c=self.datatable["population"], **kwargs)
       
+      if plotnames:
+        if remove_outliers == False:
+          threshold =0
+        for i in np.unique(self.datatable["population"]): 
+          try:
+            text_x = np.average(self.datatable[np.where((self.datatable["probabilities"] > threshold) & (self.datatable["population"] != -1) & (self.datatable["population"] == i))[0]][xaxis])
+            text_y = np.average(self.datatable[np.where((self.datatable["probabilities"] > threshold) & (self.datatable["population"] != -1) & (self.datatable["population"] == i))[0]][yaxis])
+            plt.text(text_x,text_y,i)
+          except:
+            return 
+
       if plotclose:
         plt.ylabel(yaxis)
         plt.xlabel(xaxis)
-        plt.title(f"{clusterer} clusters in \n {self.regionname} \n Outliers removed = {remove_outliers} quantile ")
+        plt.title(f" Computated clusters in \n {self.regionname} \n Outliers removed = {remove_outliers} quantile ")
         plt.show()
         
       
-    except:
-      if clusterer not in self.datatable.columns:
-        print(f"Error: You did not perform the{clusterer} clustering yet. No {clusterer} column found in self.Datatable")
-      
+    except Exception as e:
+      print(f"Was not able to plot the clusters error code : \n {e}")
 
 
 #Clustering functions
   def cluster(self, clusterer = HDBSCAN, dimensions = ["b","l","parallax","pmdec","pmra"],**kwargs):
-        print(f"Running {clusterer.__class__.__name__} on {self.regionname} over {dimensions}\n")
+        print(f"Clustering {self.regionname} region over {dimensions}\n")
         dataselection = [self.datatable[param] for param in dimensions] #N dimensional HDBscan
         data =StandardScaler().fit_transform(np.array(dataselection).T)
         clusterer = clusterer(**kwargs)
@@ -245,7 +247,7 @@ class GCAinstance():
     plt.suptitle(f"Silhouette clustering analysis clustering on sample data with n_clusters = {n_clusters}",
                  fontsize=14, fontweight='bold')
     colors = cm.nipy_spectral(self.datatable[mask]["population"].astype(float) / n_clusters)  # make the colors match with the other plot
-    ax2.scatter(self.datatable[mask][xaxis], self.datatable[mask][yaxis], marker='.', s=30, lw=0, alpha=0.7, c=colors, edgecolor='k')
+    ax2.scatter(self.datatable[mask][xaxis], self.datatable[mask][yaxis], marker='.', s=30, lw=0, c=colors, edgecolor='k', **kwargs)
 
     # Labeling the clusters
     centers = np.array([[np.average(self.datatable[self.datatable["population"] == i][xaxis]),np.average(self.datatable[self.datatable["population"] == i][yaxis])] for i in np.unique(final_datatable_selection)])
@@ -258,42 +260,43 @@ class GCAinstance():
     plt.show()
     return 
 
-  def silhouette_cluster_region(self, threshold=0,xaxis="l",yaxis="b", dimensions=["b","l","parallax","pmdec","pmra"], **kwargs):
+  def silhouette_cluster_region(self, cluster=False, region=False, threshold=0,xaxis="l",yaxis="b", dimensions=["b","l","parallax","pmdec","pmra"], **kwargs):
 
+    #selecting all data -----------------------------------------------------------------------------------------------
+    #removing all -1 region elements and above the threshold
+    region_dataselection = [self.regiondata[param] for param in dimensions] #N dimensional HDBscan
+    data_region = StandardScaler().fit_transform(np.array(region_dataselection).T)
     dataselection = [self.datatable[param] for param in dimensions] #N dimensional HDBscan
     data = StandardScaler().fit_transform(np.array(dataselection).T)
-    #calculating silhouette    
-    #index selection of common stars by source id
 
+    #select data based on individual clusters or regions
+    if (bool(cluster) & bool(region)):
+      thold = pd.Series(self.datatable["probabilities"]).quantile(threshold)
+      mask = np.where((self.datatable["population"] != -1) & (self.datatable["probabilities"] > thold) & (self.datatable["population"] == cluster))
+      mask_region = np.where(self.regiondata["population"] == region)
+      final_dataselection_selection = np.concatenate((data[mask],data_region[mask_region]), axis=0)
+      datatable_selection = self.datatable[mask]["population"] #df format
+      final_regiondata_selection = self.regiondata[mask_region]["population"] #unneccesary
+    else:
+      thold = pd.Series(self.datatable["probabilities"]).quantile(threshold)
+      mask = np.where((self.datatable["population"] != -1) & (self.datatable["probabilities"] > thold))
+      final_dataselection_selection = np.concatenate((data[mask],data_region), axis=0)
+      datatable_selection = self.datatable[mask]["population"] #df format
+      final_regiondata_selection = self.regiondata["population"] #unneccesary
 
-     #seperate out the noise regions (-1 region in HDBSCAN)
-    #final_datatable_selection = common_elements_datatable[np.where(common_elements_datatable != -1)]
-    thold = pd.Series(self.datatable["probabilities"]).quantile(threshold)
-    mask = np.where((self.datatable["population"] != -1) & (self.datatable["probabilities"] > thold))
-
-    
-    datatable_selection = self.datatable[mask]["population"] #df format
-    final_regiondata_selection = self.regiondata["population"] #unneccesary
-    dataselection_selection = data[mask]# dataselection[common_elements_datatable["population"] != -1] #np.array format
-
-    #combine region and cluster data
-    available_region_numbers =np.arange(len(np.unique(self.regiondata["population"])), len(np.unique(self.regiondata["population"])) + len(np.unique(final_regiondata_selection)))
-    region_pop_converted_numbers = np.array([np.where(np.unique(self.regiondata["population"]) == i)[0][0] for i in self.regiondata["population"]]) #convert named clusters to numbers
+ 
+    #combine region and cluster data -------------------------------------------------------------------------------------
+    available_region_numbers =np.arange(len(np.unique(final_regiondata_selection))+1, len(np.unique(final_regiondata_selection)) + 1 + len(np.unique(final_regiondata_selection))) #creating array of all available region numbers
+    region_pop_converted_numbers = np.array([np.where(np.unique(final_regiondata_selection) == i)[0][0] for i in final_regiondata_selection]) #convert named clusters to numbers
     renumbered_region_data = [available_region_numbers[v] for c,v in enumerate(region_pop_converted_numbers)] #renumber population names such that they do not coincide with cluster data
     final_datatable_selection = np.concatenate((datatable_selection,renumbered_region_data),axis=0) #add region population labels to cluster labels
 
-    region_dataselection = [self.regiondata[param] for param in dimensions] #N dimensional HDBscan
-    data_region = StandardScaler().fit_transform(np.array(region_dataselection).T)
-    #print(type(data), np.shape(data))
-    #print(type(data_region), np.shape(data_region))
-    final_dataselection_selection = np.concatenate((data[mask],data_region), axis=0)
-    print(np.shape(final_dataselection_selection))
-    print(np.shape(final_datatable_selection))
-    
+  
+    #calculating silhouette samples
     sample_silhouette_values = eval.silhouettesample(final_regiondata_selection, final_datatable_selection, final_dataselection_selection)
     avg_silhouette_score = eval.silhouettescore(final_regiondata_selection, final_datatable_selection, final_dataselection_selection)
     n_clusters = len(np.unique(final_datatable_selection))
-
+    
 
     #creating figure
     fig, (ax1, ax2) = plt.subplots(1, 2)
@@ -364,8 +367,7 @@ class GCAinstance():
     return 
 
 
-
-  def optimize_grid(self, dimensions= ["b","l","parallax","pmdec","pmra"], clusterer=HDBSCAN, fit_params=None, scoring_function=scoringfunction, write_results=False, **kwargs):     
+  def optimize_grid(self, clusterer=HDBSCAN, dimensions= ["b","l","parallax","pmdec","pmra"],  fit_params=None, scoring_function=scoringfunction, write_results=False, **kwargs):     
         dataselection = [self.datatable[param] for param in dimensions] #N dimensional HDBscan
         data = StandardScaler().fit_transform(np.array(dataselection).T)
 
