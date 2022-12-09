@@ -12,10 +12,12 @@ from tqdm import tqdm
 import evalmetric as eval #own functions
 import astropy.io 
 from astropy.io import fits
+from astropy.io import ascii
 import astropy.units as u
 from astropy.coordinates import SkyCoord
 from astroquery.gaia import Gaia
 from astropy.table import Table
+
 
 #Clustering packages
  
@@ -50,45 +52,7 @@ class GCAinstance():
     self.datatable = data #complete table containing all data
     self.regiondata =regiondata
     
-
-#Data prep/Manipulation functions
-  def GaiaLogin(self, username, password):
-    """Gaia Login function used to connect GCA instance to Gaia database
-       such that asynchronous querys can be passed. 
-
-    Args:
-        username (str): Gaia account username .
-        password (str): Gaia account password
-
-    Returns:
-        Nothing
-    """
-
-    Gaia.login(user=str(username), password=str(password))
-
-  def FetchQueryAsync(self, query, **kwargs):
-
-    job = Gaia.launch_job_async(query, **kwargs)
-    self.datatable = job.get_results()
-
-  def ImportDataTable(self,path): #import a fits datatable comming from Gaia or whatever
-      self.datatable =Table(fits.open(path)[1].data)
-  
-  def ExportDataTable(self, path, **kwargs): #export the self.datatable to any format(for importing measures i would recommend .fits)
-      self.datatable.write(f'{path}',**kwargs)
-  
-  def ImportRegion(self, path, **kwargs):
-      self.regiondata =Table(fits.open(path)[1].data)
-
-  def ExportRegion(self, path, **kwargs):
-      self.regiondata.write(f'{path}',**kwargs)
-
-  def RenameCol(self, table, newnames):
-    for i in newnames:
-      table.rename_column(i[0],i[1])
-
-
-  #plotting functions
+#plotting functions
   def PlotGAIA(self, xaxis = "b", yaxis = "l",plotclose=True,  **kwargs):
     
     plt.scatter(self.datatable[xaxis],self.datatable[yaxis], **kwargs)
@@ -126,10 +90,10 @@ class GCAinstance():
       if remove_outliers: 
         threshold = pd.Series(self.datatable["probabilities"]).quantile(remove_outliers)
         out1 = np.where((self.datatable["probabilities"] > threshold) & (self.datatable["population"] != -1))[0]
-        plt.scatter(np.take(self.datatable[xaxis],out1),np.take(self.datatable[yaxis],out1), c=np.take(self.datatable["population"],out1), **kwargs)
+        plt.scatter(np.take(self.datatable[xaxis],out1),np.take(self.datatable[yaxis],out1), color=np.take(self.datatable["population"],out1), **kwargs)
       
       if remove_outliers == False:
-        plt.scatter(self.datatable[xaxis], self.datatable[yaxis] , c=self.datatable["population"], **kwargs)
+        plt.scatter(self.datatable[xaxis], self.datatable[yaxis] , color=self.datatable["population"], **kwargs)
       
       if plotnames:
         if remove_outliers == False:
@@ -153,7 +117,46 @@ class GCAinstance():
       print(f"Was not able to plot the clusters error code : \n {e}")
 
 
-#Clustering functions
+#Data prep/Manipulation functions
+  def GaiaLogin(self, username, password):
+    """Gaia Login function used to connect GCA instance to Gaia database
+       such that asynchronous querys can be passed. 
+
+    Args:
+        username (str): Gaia account username .
+        password (str): Gaia account password
+
+    Returns:
+        Nothing
+    """
+
+    Gaia.login(user=str(username), password=str(password))
+
+  def FetchQueryAsync(self, query, **kwargs):
+
+    job = Gaia.launch_job_async(query, **kwargs)
+    self.datatable = job.get_results()
+
+  def ImportDataTable(self,path, format = "FITS",**kwargs): #import a fits datatable comming from Gaia or whatever
+    if format =="FITS":
+      self.datatable =Table(fits.open(path)[1].data)
+    if format =="csv":
+      self.datatable = Table.from_pandas(pd.read_table(path, sep=","))
+  def ExportDataTable(self, path, **kwargs): #export the self.datatable to any format(for importing measures i would recommend .fits)
+      self.datatable.write(f'{path}',**kwargs)
+  
+  def ImportRegion(self, path, format = "FITS", **kwargs):
+    if format == "FITS":
+      self.regiondata =fits.open(path)[1].data
+    if format == "csv":
+      self.regiondata = Table.from_pandas(pd.read_table(path, sep=",", **kwargs))
+  def ExportRegion(self, path, **kwargs):
+      self.regiondata.write(f'{path}',**kwargs)
+
+  def RenameCol(self, table, newnames):
+    for i in newnames:
+      table.rename_column(i[0],i[1])
+
   def cluster(self, clusterer = HDBSCAN, dimensions = ["b","l","parallax","pmdec","pmra"],**kwargs):
         print(f"Clustering {self.regionname} region over {dimensions}\n")
         dataselection = [self.datatable[param] for param in dimensions] #N dimensional HDBscan
@@ -260,7 +263,7 @@ class GCAinstance():
     plt.show()
     return 
 
-  def silhouette_cluster_region(self, cluster=False, region=False, threshold=0,xaxis="l",yaxis="b", dimensions=["b","l","parallax","pmdec","pmra"], **kwargs):
+  def silhouette_cluster_region(self, cluster=False, region=False, threshold=0,xaxis="l",yaxis="b", dimensions=["b","l","parallax","pmdec","pmra"],plotnames=True ,**kwargs):
 
     #selecting all data -----------------------------------------------------------------------------------------------
     #removing all -1 region elements and above the threshold
@@ -277,24 +280,25 @@ class GCAinstance():
       final_dataselection_selection = np.concatenate((data[mask],data_region[mask_region]), axis=0)
       datatable_selection = self.datatable[mask]["population"] #df format
       final_regiondata_selection = self.regiondata[mask_region]["population"] #unneccesary
+      region_and_cluster_labels = np.concatenate((datatable_selection,final_regiondata_selection))
     else:
       thold = pd.Series(self.datatable["probabilities"]).quantile(threshold)
       mask = np.where((self.datatable["population"] != -1) & (self.datatable["probabilities"] > thold))
+      mask_region = np.full(len(self.regiondata), True)
       final_dataselection_selection = np.concatenate((data[mask],data_region), axis=0)
       datatable_selection = self.datatable[mask]["population"] #df format
       final_regiondata_selection = self.regiondata["population"] #unneccesary
-
- 
+      region_and_cluster_labels = np.concatenate((datatable_selection,final_regiondata_selection))
+    placeholder =[]
     #combine region and cluster data -------------------------------------------------------------------------------------
     available_region_numbers =np.arange(len(np.unique(final_regiondata_selection))+1, len(np.unique(final_regiondata_selection)) + 1 + len(np.unique(final_regiondata_selection))) #creating array of all available region numbers
     region_pop_converted_numbers = np.array([np.where(np.unique(final_regiondata_selection) == i)[0][0] for i in final_regiondata_selection]) #convert named clusters to numbers
     renumbered_region_data = [available_region_numbers[v] for c,v in enumerate(region_pop_converted_numbers)] #renumber population names such that they do not coincide with cluster data
     final_datatable_selection = np.concatenate((datatable_selection,renumbered_region_data),axis=0) #add region population labels to cluster labels
-
   
     #calculating silhouette samples
-    sample_silhouette_values = eval.silhouettesample(final_regiondata_selection, final_datatable_selection, final_dataselection_selection)
-    avg_silhouette_score = eval.silhouettescore(final_regiondata_selection, final_datatable_selection, final_dataselection_selection)
+    sample_silhouette_values = eval.silhouettesample(placeholder, region_and_cluster_labels, final_dataselection_selection)
+    avg_silhouette_score = eval.silhouettescore(placeholder, region_and_cluster_labels, final_dataselection_selection)
     n_clusters = len(np.unique(final_datatable_selection))
     
 
@@ -316,8 +320,11 @@ class GCAinstance():
     #calculating individual silhouette scores
     y_lower = 10  # starting position on the y-axis of the next cluster to be rendered
 
+    #combined orignal names from region and datatable
+    combinednames = np.concatenate((datatable_selection, final_regiondata_selection),axis=0)
 
-    for i in np.unique(final_datatable_selection): # Here we make the colored shape for each cluster
+
+    for c,i in enumerate(np.unique(final_datatable_selection)): # Here we make the colored shape for each cluster
         # Aggregate the silhouette scores for samples belonging to cluster i, and sort them
         ith_cluster_silhouette_values = sample_silhouette_values[final_datatable_selection == i]
         ith_cluster_silhouette_values.sort()
@@ -328,7 +335,7 @@ class GCAinstance():
         y_range = np.arange(y_lower, y_upper)
         # Use matplotlib color maps to make each cluster a different color, based on the total number of clusters.
         # We use this to make sure the colors in the right plot will match those on the left.
-        color = cm.nipy_spectral(float(i) / n_clusters)
+        color = cm.nipy_spectral(c / n_clusters)
 
         # Draw the cluster's overall silhouette by drawing one horizontal stripe for each datapoint in it
         ax1.fill_betweenx(y=y_range,                            # y-coordinates of the stripes
@@ -337,7 +344,8 @@ class GCAinstance():
                           facecolor=color, edgecolor=color, alpha=0.7)
 
         # Label the silhouette plots with their cluster numbers at the middle
-        ax1.text(-0.05, y_lower + 0.5 * size_cluster_i, str(i))
+
+        ax1.text(-0.0, y_lower + 0.5 * size_cluster_i, str(np.unique(combinednames)[c]))
 
         # Compute the new y_lower for next plot
         y_lower = y_upper + 10  # 10 for the 0 samples  
@@ -345,24 +353,33 @@ class GCAinstance():
     
 
     #PLOT RIGHT PLOT
-    #
     ax2.set_title("The visualization of the clustered data.")
     ax2.set_xlabel(xaxis)
     ax2.set_ylabel(yaxis)
 
     plt.suptitle(f"Silhouette clustering analysis clustering on sample data with n_clusters = {n_clusters}",
                  fontsize=14, fontweight='bold')
-    colors = cm.nipy_spectral(self.datatable[mask]["population"].astype(float) / n_clusters)  # make the colors match with the other plot
-    ax2.scatter(self.datatable[mask][xaxis], self.datatable[mask][yaxis], marker='.', s=30, lw=0, alpha=0.7, c=colors, edgecolor='k')
-
-    # Labeling the clusters
-    centers = np.array([[np.average(self.datatable[self.datatable["population"] == i][xaxis]),np.average(self.datatable[self.datatable["population"] == i][yaxis])] for i in np.unique(final_datatable_selection)])
+    colors = cm.nipy_spectral(c / n_clusters)  # make the colors match with the other plot
+    ax2.scatter(self.datatable[mask][xaxis], self.datatable[mask][yaxis], marker='.', s=30, lw=0, alpha=0.7, color=colors, edgecolor='k')
+    
+    ax2.scatter(self.regiondata[mask_region][xaxis],self.regiondata[mask_region][yaxis],marker='.', s=30, lw=0, alpha=0.7, edgecolor='k')
    
+    
+    
+
+    #LABELING CLUSTERS
+    #convert renamed clusterlabels back to original region names
+    centers_clusters = np.array([[np.average(self.datatable[self.datatable["population"] == i][xaxis]),np.average(self.datatable[self.datatable["population"] == i][yaxis])] for i in np.unique(datatable_selection)])
+    centers_regions =  np.array([[np.average(self.regiondata[self.regiondata["population"] == i][xaxis]),np.average(self.regiondata[self.regiondata["population"] == i][yaxis])] for i in np.unique(final_regiondata_selection)])
+    #centers = np.concatenate(centers_clusters,centers_regions)
     # Draw white circles at cluster centers
-    ax2.scatter(centers[:, 0], centers[:, 1], marker='o', c="white", alpha=1, s=200, edgecolor='k')
+    ax2.scatter(centers_clusters[:, 0], centers_clusters[:, 1], marker='o', c="white", alpha=1, s=200, edgecolor='k')
     # Put numbers in those circles
-    for i, c in enumerate(centers):
-        ax2.scatter(c[0], c[1], marker='$%d$' % (i+min(np.unique(final_datatable_selection))), alpha=1, s=50, edgecolor='k')
+    for i, c in enumerate(centers_clusters):
+        ax2.scatter(c[0], c[1], marker='$%d$' % (i+min(np.unique(datatable_selection))), alpha=1, s=50, edgecolor='k')
+    for i, c in enumerate(centers_regions):
+        ax2.text(c[0], c[1],str(np.unique(final_regiondata_selection)[i]), alpha=1)
+
     plt.show()
     return 
 
