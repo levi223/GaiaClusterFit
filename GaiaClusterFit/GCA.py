@@ -90,10 +90,10 @@ class GCAinstance():
       if remove_outliers: 
         threshold = pd.Series(self.datatable["probabilities"]).quantile(remove_outliers)
         out1 = np.where((self.datatable["probabilities"] > threshold) & (self.datatable["population"] != -1))[0]
-        plt.scatter(np.take(self.datatable[xaxis],out1),np.take(self.datatable[yaxis],out1), color=np.take(self.datatable["population"],out1), **kwargs)
+        plt.scatter(np.take(self.datatable[xaxis],out1),np.take(self.datatable[yaxis],out1), c=np.take(self.datatable["population"],out1), **kwargs)
       
       if remove_outliers == False:
-        plt.scatter(self.datatable[xaxis], self.datatable[yaxis] , color=self.datatable["population"], **kwargs)
+        plt.scatter(self.datatable[xaxis], self.datatable[yaxis] , c=self.datatable["population"], **kwargs)
       
       if plotnames:
         if remove_outliers == False:
@@ -150,8 +150,11 @@ class GCAinstance():
       self.regiondata =fits.open(path)[1].data
     if format == "csv":
       self.regiondata = Table.from_pandas(pd.read_table(path, sep=",", **kwargs))
-  def ExportRegion(self, path, **kwargs):
+  def ExportRegion(self, path, format="FITS" ,**kwargs):
+    if format=="FITS":
       self.regiondata.write(f'{path}',**kwargs)
+    if format =="csv": 
+      pd.DataFrame(self.regiondata).to_csv(f"{path}")  
 
   def RenameCol(self, table, newnames):
     for i in newnames:
@@ -175,27 +178,27 @@ class GCAinstance():
         self.clusterer = clusterer  
         return clusterer 
 
-  def silhouette_cluster(self, threshold=0,xaxis="l",yaxis="b", dimensions=["b","l","parallax","pmdec","pmra"], **kwargs):
+  def silhouette_cluster(self, threshold=False,xaxis="l",yaxis="b", dimensions=["b","l","parallax","pmdec","pmra"], **kwargs):
 
-    dataselection = [self.datatable[param] for param in dimensions] #N dimensional HDBscan
-    data = StandardScaler().fit_transform(np.array(dataselection).T)
-    #calculating silhouette    
-    #index selection of common stars by source id
-
-
-     #seperate out the noise regions (-1 region in HDBSCAN)
-    #final_datatable_selection = common_elements_datatable[np.where(common_elements_datatable != -1)]
-    thold = pd.Series(self.datatable["probabilities"]).quantile(threshold)
-    mask = np.where((self.datatable["population"] != -1) & (self.datatable["probabilities"] > thold))
-    final_datatable_selection = self.datatable[mask]["population"] #df format
-    final_regiondata_selection = 0 #unneccesary
-    final_dataselection_selection = data[mask]# dataselection[common_elements_datatable["population"] != -1] #np.array format
-    sample_silhouette_values = eval.silhouettesample(final_regiondata_selection, final_datatable_selection, final_dataselection_selection)
-    avg_silhouette_score = eval.silhouettescore(final_regiondata_selection, final_datatable_selection, final_dataselection_selection)
-    n_clusters = len(np.unique(final_datatable_selection))
+    datatable_dataframe = Table(self.datatable).to_pandas()
+    if threshold:
+      thold = pd.Series(datatable_dataframe["probabilities"]).quantile(threshold)
+      datatable_dataframe = datatable_dataframe.loc[datatable_dataframe["probabilities"] > thold]
+    #for i in np.unique(datatable_dataframe["population"]):
+      #datatable_dataframe.loc[datatable_dataframe["population"] == i,dimensions] = StandardScaler().fit_transform(datatable_dataframe.loc[datatable_dataframe["population"] == i,dimensions].to_numpy())
+    datatable_dataframe[dimensions] = StandardScaler().fit_transform(datatable_dataframe[dimensions].to_numpy())
+    datatable_dataframe = datatable_dataframe.loc[datatable_dataframe["population"] != -1] 
+    max_cluster_num = max(datatable_dataframe["population"])
+    datatable_labels = datatable_dataframe["population"]  
+    datatable_data = datatable_dataframe[dimensions]
 
 
-    #creating figure
+    placeholder = []
+    sample_silhouette_values = eval.silhouettesample(placeholder, datatable_labels, datatable_data)
+    avg_silhouette_score = eval.silhouettescore(placeholder, datatable_labels, datatable_data)
+    n_clusters = len(np.unique(datatable_labels))
+
+#creating figure
     fig, (ax1, ax2) = plt.subplots(1, 2)
     fig.set_size_inches(18, 7)
     # The 1st subplot is the silhouette plot
@@ -208,15 +211,15 @@ class GCAinstance():
     # The (n_clusters+1)*10 is for inserting blank space between silhouette
     # plots of individual clusters, to demarcate them clearly.
     ax1.set_ylabel("Cluster label")
-    ax1.set_ylim([0, len(final_dataselection_selection) + (n_clusters + 1) * 10]) #change variables
+    ax1.set_ylim([0, len(datatable_data) + (n_clusters + 1) * 10]) #change variables
     ax1.set_yticks([])  # Clear the yaxis labels / ticks
     #calculating individual silhouette scores
     y_lower = 10  # starting position on the y-axis of the next cluster to be rendered
 
-
-    for i in np.unique(final_datatable_selection): # Here we make the colored shape for each cluster
+    for c,i in enumerate(np.unique(datatable_labels.tolist())): # Here we make the colored shape for each cluster
         # Aggregate the silhouette scores for samples belonging to cluster i, and sort them
-        ith_cluster_silhouette_values = sample_silhouette_values[final_datatable_selection == i]
+        
+        ith_cluster_silhouette_values = sample_silhouette_values[np.where(datatable_labels == i)]
         ith_cluster_silhouette_values.sort()
 
         # Figure out how much room on the y-axis to reserve for this cluster
@@ -225,7 +228,7 @@ class GCAinstance():
         y_range = np.arange(y_lower, y_upper)
         # Use matplotlib color maps to make each cluster a different color, based on the total number of clusters.
         # We use this to make sure the colors in the right plot will match those on the left.
-        color = cm.nipy_spectral(float(i) / n_clusters)
+        color = cm.nipy_spectral((c+1) / n_clusters)
 
         # Draw the cluster's overall silhouette by drawing one horizontal stripe for each datapoint in it
         ax1.fill_betweenx(y=y_range,                            # y-coordinates of the stripes
@@ -234,74 +237,74 @@ class GCAinstance():
                           facecolor=color, edgecolor=color, alpha=0.7)
 
         # Label the silhouette plots with their cluster numbers at the middle
-        ax1.text(-0.05, y_lower + 0.5 * size_cluster_i, str(i))
+
+        ax1.text(-0.0, y_lower + 0.5 * size_cluster_i, str(np.unique(datatable_labels.tolist())[c]))
 
         # Compute the new y_lower for next plot
         y_lower = y_upper + 10  # 10 for the 0 samples  
     ax1.axvline(x=avg_silhouette_score, color="red", linestyle="--")
+    y_lower = 10
     
-
     #PLOT RIGHT PLOT
-    #
     ax2.set_title("The visualization of the clustered data.")
     ax2.set_xlabel(xaxis)
     ax2.set_ylabel(yaxis)
 
     plt.suptitle(f"Silhouette clustering analysis clustering on sample data with n_clusters = {n_clusters}",
                  fontsize=14, fontweight='bold')
-    colors = cm.nipy_spectral(self.datatable[mask]["population"].astype(float) / n_clusters)  # make the colors match with the other plot
-    ax2.scatter(self.datatable[mask][xaxis], self.datatable[mask][yaxis], marker='.', s=30, lw=0, c=colors, edgecolor='k', **kwargs)
-
-    # Labeling the clusters
-    centers = np.array([[np.average(self.datatable[self.datatable["population"] == i][xaxis]),np.average(self.datatable[self.datatable["population"] == i][yaxis])] for i in np.unique(final_datatable_selection)])
-   
-    # Draw white circles at cluster centers
-    ax2.scatter(centers[:, 0], centers[:, 1], marker='o', c="white", alpha=1, s=200, edgecolor='k')
-    # Put numbers in those circles
-    for i, c in enumerate(centers):
-        ax2.scatter(c[0], c[1], marker='$%d$' % (i+min(np.unique(final_datatable_selection))), alpha=1, s=50, edgecolor='k')
+    for c,i in enumerate(np.unique(datatable_labels.tolist())):
+      colors = cm.nipy_spectral((c+1) / n_clusters)  # make the colors match with the other plot
+      ax2.scatter(datatable_data.loc[datatable_labels == i,xaxis], datatable_data.loc[datatable_labels == i,yaxis], marker='.', s=30, lw=0, alpha=0.7, color=colors, edgecolor='k')
+      centerx = np.average(datatable_data.loc[datatable_labels == i,xaxis])
+      centery = np.average(datatable_data.loc[datatable_labels == i,yaxis])
+      ax2.text(centerx,centery,i)
+    
     plt.show()
+   
     return 
 
-  def silhouette_cluster_region(self, cluster=False, region=False, threshold=0,xaxis="l",yaxis="b", dimensions=["b","l","parallax","pmdec","pmra"],plotnames=True ,**kwargs):
+  def silhouette_cluster_region(self, cluster=False, region=False, threshold=False,xaxis="l",yaxis="b", dimensions=["b","l","parallax","pmdec","pmra"],plotnames=True ,**kwargs):
 
-    #selecting all data -----------------------------------------------------------------------------------------------
-    #removing all -1 region elements and above the threshold
-    region_dataselection = [self.regiondata[param] for param in dimensions] #N dimensional HDBscan
-    data_region = StandardScaler().fit_transform(np.array(region_dataselection).T)
-    dataselection = [self.datatable[param] for param in dimensions] #N dimensional HDBscan
-    data = StandardScaler().fit_transform(np.array(dataselection).T)
+  #selecting all cluster data
+    datatable_dataframe = Table(self.datatable).to_pandas()
+    if threshold:
+      thold = pd.Series(datatable_dataframe["probabilities"]).quantile(threshold)
+      datatable_dataframe = datatable_dataframe.loc[datatable_dataframe["probabilities"] > thold]
+    #for i in np.unique(datatable_dataframe["population"]):
+      #datatable_dataframe.loc[datatable_dataframe["population"] == i,dimensions] = StandardScaler().fit_transform(datatable_dataframe.loc[datatable_dataframe["population"] == i,dimensions].to_numpy())
+    datatable_dataframe[dimensions] = StandardScaler().fit_transform(datatable_dataframe[dimensions].to_numpy())
+    if cluster:
+      datatable_dataframe = datatable_dataframe.loc[datatable_dataframe["population"] == cluster]
+    datatable_dataframe = datatable_dataframe.loc[datatable_dataframe["population"] != -1] 
+    max_cluster_num = max(datatable_dataframe["population"])
+    datatable_labels = datatable_dataframe["population"]  
+    datatable_data = datatable_dataframe[dimensions]
 
-    #select data based on individual clusters or regions
-    if (bool(cluster) & bool(region)):
-      thold = pd.Series(self.datatable["probabilities"]).quantile(threshold)
-      mask = np.where((self.datatable["population"] != -1) & (self.datatable["probabilities"] > thold) & (self.datatable["population"] == cluster))
-      mask_region = np.where(self.regiondata["population"] == region)
-      final_dataselection_selection = np.concatenate((data[mask],data_region[mask_region]), axis=0)
-      datatable_selection = self.datatable[mask]["population"] #df format
-      final_regiondata_selection = self.regiondata[mask_region]["population"] #unneccesary
-      region_and_cluster_labels = np.concatenate((datatable_selection,final_regiondata_selection))
-    else:
-      thold = pd.Series(self.datatable["probabilities"]).quantile(threshold)
-      mask = np.where((self.datatable["population"] != -1) & (self.datatable["probabilities"] > thold))
-      mask_region = np.full(len(self.regiondata), True)
-      final_dataselection_selection = np.concatenate((data[mask],data_region), axis=0)
-      datatable_selection = self.datatable[mask]["population"] #df format
-      final_regiondata_selection = self.regiondata["population"] #unneccesary
-      region_and_cluster_labels = np.concatenate((datatable_selection,final_regiondata_selection))
-    placeholder =[]
-    #combine region and cluster data -------------------------------------------------------------------------------------
-    available_region_numbers =np.arange(len(np.unique(final_regiondata_selection))+1, len(np.unique(final_regiondata_selection)) + 1 + len(np.unique(final_regiondata_selection))) #creating array of all available region numbers
-    region_pop_converted_numbers = np.array([np.where(np.unique(final_regiondata_selection) == i)[0][0] for i in final_regiondata_selection]) #convert named clusters to numbers
-    renumbered_region_data = [available_region_numbers[v] for c,v in enumerate(region_pop_converted_numbers)] #renumber population names such that they do not coincide with cluster data
-    final_datatable_selection = np.concatenate((datatable_selection,renumbered_region_data),axis=0) #add region population labels to cluster labels
-  
-    #calculating silhouette samples
-    sample_silhouette_values = eval.silhouettesample(placeholder, region_and_cluster_labels, final_dataselection_selection)
-    avg_silhouette_score = eval.silhouettescore(placeholder, region_and_cluster_labels, final_dataselection_selection)
-    n_clusters = len(np.unique(final_datatable_selection))
+  #selecting all Region data -----------------------------------------------------------------------------------------------
+    region_dataframe = Table(self.regiondata).to_pandas()
+    if region:
+      region_dataframe  = region_dataframe.loc[region_dataframe["population"] == region]
+    region_dataframe["temp_name"] = region_dataframe.loc[:, 'population']
+    for c,i in enumerate(np.unique(region_dataframe["population"])):
+      #region_dataframe.loc[region_dataframe ["population"] == i, dimensions] = StandardScaler().fit_transform(region_dataframe.loc[region_dataframe["population"] == i, dimensions])
+      region_dataframe.loc[region_dataframe ["population"] == i, "population"] = (max_cluster_num + 1 + c)
+    region_dataframe[dimensions] = StandardScaler().fit_transform(region_dataframe[dimensions].to_numpy())
+    region_labels = region_dataframe["population"]
+    region_data= region_dataframe[dimensions] #get data from region
     
 
+    #merge labels and data
+    merged_data = pd.concat((region_data,datatable_data))
+    merged_labels = pd.concat((region_labels,datatable_labels))
+    
+
+    placeholder =[]
+    #calculating silhouette samples
+    sample_silhouette_values = eval.silhouettesample(placeholder, merged_labels, merged_data)
+    avg_silhouette_score = eval.silhouettescore(placeholder, merged_labels, merged_data)
+    n_clusters = len(np.unique(merged_labels))
+    
+   
     #creating figure
     fig, (ax1, ax2) = plt.subplots(1, 2)
     fig.set_size_inches(18, 7)
@@ -315,18 +318,22 @@ class GCAinstance():
     # The (n_clusters+1)*10 is for inserting blank space between silhouette
     # plots of individual clusters, to demarcate them clearly.
     ax1.set_ylabel("Cluster label")
-    ax1.set_ylim([0, len(final_dataselection_selection) + (n_clusters + 1) * 10]) #change variables
+    ax1.set_ylim([0, len(merged_data) + (n_clusters + 1) * 10]) #change variables
     ax1.set_yticks([])  # Clear the yaxis labels / ticks
     #calculating individual silhouette scores
     y_lower = 10  # starting position on the y-axis of the next cluster to be rendered
 
     #combined orignal names from region and datatable
-    combinednames = np.concatenate((datatable_selection, final_regiondata_selection),axis=0)
+    
+    combinednames = np.concatenate((region_dataframe["temp_name"].to_list(), [float(i) for i in datatable_labels.to_list()]),axis=0)
+   
+  
+   
 
-
-    for c,i in enumerate(np.unique(final_datatable_selection)): # Here we make the colored shape for each cluster
+    for c,i in enumerate(np.unique(combinednames.tolist())): # Here we make the colored shape for each cluster
         # Aggregate the silhouette scores for samples belonging to cluster i, and sort them
-        ith_cluster_silhouette_values = sample_silhouette_values[final_datatable_selection == i]
+        
+        ith_cluster_silhouette_values = sample_silhouette_values[np.where(combinednames == i)]
         ith_cluster_silhouette_values.sort()
 
         # Figure out how much room on the y-axis to reserve for this cluster
@@ -335,7 +342,7 @@ class GCAinstance():
         y_range = np.arange(y_lower, y_upper)
         # Use matplotlib color maps to make each cluster a different color, based on the total number of clusters.
         # We use this to make sure the colors in the right plot will match those on the left.
-        color = cm.nipy_spectral(c / n_clusters)
+        color = cm.nipy_spectral((c+1) / n_clusters)
 
         # Draw the cluster's overall silhouette by drawing one horizontal stripe for each datapoint in it
         ax1.fill_betweenx(y=y_range,                            # y-coordinates of the stripes
@@ -345,13 +352,13 @@ class GCAinstance():
 
         # Label the silhouette plots with their cluster numbers at the middle
 
-        ax1.text(-0.0, y_lower + 0.5 * size_cluster_i, str(np.unique(combinednames)[c]))
+        ax1.text(-0.0, y_lower + 0.5 * size_cluster_i, str(np.unique(combinednames.tolist())[c]))
 
         # Compute the new y_lower for next plot
         y_lower = y_upper + 10  # 10 for the 0 samples  
     ax1.axvline(x=avg_silhouette_score, color="red", linestyle="--")
+    y_lower = 10
     
-
     #PLOT RIGHT PLOT
     ax2.set_title("The visualization of the clustered data.")
     ax2.set_xlabel(xaxis)
@@ -359,28 +366,15 @@ class GCAinstance():
 
     plt.suptitle(f"Silhouette clustering analysis clustering on sample data with n_clusters = {n_clusters}",
                  fontsize=14, fontweight='bold')
-    colors = cm.nipy_spectral(c / n_clusters)  # make the colors match with the other plot
-    ax2.scatter(self.datatable[mask][xaxis], self.datatable[mask][yaxis], marker='.', s=30, lw=0, alpha=0.7, color=colors, edgecolor='k')
+    for c,i in enumerate(np.unique(combinednames.tolist())):
+      colors = cm.nipy_spectral((c+1) / n_clusters)  # make the colors match with the other plot
+      ax2.scatter(merged_data.loc[combinednames == i,xaxis], merged_data.loc[combinednames == i,yaxis], marker='.', s=30, lw=0, alpha=0.7, color=colors, edgecolor='k')
+      centerx = np.average(merged_data.loc[combinednames == i,xaxis])
+      centery = np.average(merged_data.loc[combinednames == i,yaxis])
+      ax2.text(centerx,centery,i)
     
-    ax2.scatter(self.regiondata[mask_region][xaxis],self.regiondata[mask_region][yaxis],marker='.', s=30, lw=0, alpha=0.7, edgecolor='k')
-   
-    
-    
-
-    #LABELING CLUSTERS
-    #convert renamed clusterlabels back to original region names
-    centers_clusters = np.array([[np.average(self.datatable[self.datatable["population"] == i][xaxis]),np.average(self.datatable[self.datatable["population"] == i][yaxis])] for i in np.unique(datatable_selection)])
-    centers_regions =  np.array([[np.average(self.regiondata[self.regiondata["population"] == i][xaxis]),np.average(self.regiondata[self.regiondata["population"] == i][yaxis])] for i in np.unique(final_regiondata_selection)])
-    #centers = np.concatenate(centers_clusters,centers_regions)
-    # Draw white circles at cluster centers
-    ax2.scatter(centers_clusters[:, 0], centers_clusters[:, 1], marker='o', c="white", alpha=1, s=200, edgecolor='k')
-    # Put numbers in those circles
-    for i, c in enumerate(centers_clusters):
-        ax2.scatter(c[0], c[1], marker='$%d$' % (i+min(np.unique(datatable_selection))), alpha=1, s=50, edgecolor='k')
-    for i, c in enumerate(centers_regions):
-        ax2.text(c[0], c[1],str(np.unique(final_regiondata_selection)[i]), alpha=1)
-
     plt.show()
+   
     return 
 
 
